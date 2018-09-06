@@ -290,7 +290,7 @@ TYPE_PARSER(construct<Program>(some(StartNewSubprogram{} >>
 // priority here is a cleaner solution, though regrettably subtle.  Enforcing
 // C1547 is done in semantics.
 TYPE_PARSER(construct<ProgramUnit>(indirect(Parser<Module>{})) ||
-            construct<ProgramUnit>(indirect(functionSubprogram)) ||
+    construct<ProgramUnit>(indirect(functionSubprogram)) ||
     construct<ProgramUnit>(indirect(subroutineSubprogram)) ||
     construct<ProgramUnit>(indirect(Parser<Submodule>{})) ||
     construct<ProgramUnit>(indirect(Parser<BlockData>{})) ||
