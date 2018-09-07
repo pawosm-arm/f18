@@ -23,6 +23,7 @@
 #include "../../lib/parser/provenance.h"
 #include "../../lib/parser/unparse.h"
 #include "../../lib/semantics/dump-parse-tree.h"
+#include "../../lib/semantics/expression.h"
 #include "../../lib/semantics/mod-file.h"
 #include "../../lib/semantics/resolve-names.h"
 #include "../../lib/semantics/scope.h"
@@ -91,6 +92,7 @@ struct DriverOptions {
   bool dumpUnparseWithSymbols{false};
   bool dumpParseTree{false};
   bool dumpSymbols{false};
+  bool debugExpressions{false};
   bool debugResolveNames{false};
   bool measureTree{false};
   std::vector<std::string> pgf90Args;
@@ -207,7 +209,7 @@ std::string CompileFortran(
     MeasureParseTree(parseTree);
   }
   if (driver.debugResolveNames || driver.dumpSymbols ||
-      driver.dumpUnparseWithSymbols) {
+      driver.dumpUnparseWithSymbols || driver.debugExpressions) {
     std::vector<std::string> directories{options.searchDirectories};
     directories.insert(directories.begin(), "."s);
     if (driver.moduleDirectory != "."s) {
@@ -225,6 +227,22 @@ std::string CompileFortran(
     if (driver.dumpUnparseWithSymbols) {
       Fortran::semantics::UnparseWithSymbols(
           std::cout, parseTree, driver.encoding);
+      return {};
+    }
+  }
+  if (driver.debugExpressions) {
+    Fortran::parser::CharBlock whole{parsing.cooked().data()};
+    Fortran::parser::Messages messages;
+    Fortran::parser::ContextualMessages contextualMessages{whole, &messages};
+    Fortran::evaluate::FoldingContext context{contextualMessages};
+    Fortran::semantics::IntrinsicTypeDefaultKinds defaults;
+    Fortran::semantics::AnalyzeExpressions(
+        parseTree, context, defaults, std::cout);
+    messages.Emit(std::cerr, parsing.cooked());
+    if (!messages.empty() &&
+        (driver.warningsAreErrors || messages.AnyFatalError())) {
+      std::cerr << driver.prefix << "semantic errors in " << path << '\n';
+      exitStatus = EXIT_FAILURE;
       return {};
     }
   }
@@ -386,6 +404,8 @@ int main(int argc, char *const argv[]) {
       driver.dumpParseTree = true;
     } else if (arg == "-fdebug-dump-symbols") {
       driver.dumpSymbols = true;
+    } else if (arg == "-fdebug-expressions") {
+      driver.debugExpressions = true;
     } else if (arg == "-fdebug-resolve-names") {
       driver.debugResolveNames = true;
     } else if (arg == "-fdebug-measure-parse-tree") {
